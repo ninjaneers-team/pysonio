@@ -6,6 +6,7 @@ import requests
 
 from pysonio.models.authentication import AuthErrorResponse
 from pysonio.models.authentication import OAuth2ErrorType
+from pysonio.models.error_response import ErrorResponse
 
 
 class PysonioError(Exception):
@@ -98,3 +99,39 @@ class UnexpectedResponse(CommunicationError):
     def response(self) -> requests.Response:
         """Returns the unexpected response that caused this exception."""
         return self._response
+
+
+@final
+class BadRequestError(CommunicationError):
+    def __init__(self, error_response: ErrorResponse, message: str) -> None:
+        """
+        Exception raised when a bad request error occurs.
+
+        :param error_response: The error response containing details about the bad request.
+        :param message: A message describing the error.
+        """
+        super().__init__(f"400 Bad request: {message}")
+        self._error_response: Final = error_response
+
+    @property
+    def error_response(self) -> ErrorResponse:
+        """Returns the error response that caused this exception."""
+        return self._error_response
+
+
+@final
+class ForbiddenError(CommunicationError):
+    def __init__(self, error_response: ErrorResponse, message: str) -> None:
+        """
+        Exception raised when a forbidden error occurs. This can be caused by insufficient scopes.
+
+        :param error_response: The error response containing details about the forbidden request.
+        :param message: A message describing the error.
+        """
+        super().__init__(f"403 Forbidden: {message}")
+        self._error_response: Final = error_response
+
+    @property
+    def error_response(self) -> ErrorResponse:
+        """Returns the error response that caused this exception."""
+        return self._error_response
