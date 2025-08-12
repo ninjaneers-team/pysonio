@@ -81,6 +81,15 @@ class Client:
         self._base_url: Final = base_url
 
     def get_absence_types(self) -> list[AbsenceTypesData]:
+        """
+        Retrieves a list of all absence types from the Personio API.
+        :return: A list of `AbsenceTypesData` instances representing the absence types.
+        :raises BadRequestError: If the request fails with a 400 Bad Request status code.
+        :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
+        :raises UnexpectedResponse: If the response does not match the expected data.
+        :raises CommunicationError: If there is a communication error while making the request.
+        :raises AuthenticationError: If the authentication process fails.
+        """
         # See: https://developer.personio.de/reference/get_v2-absence-types
         responses_generator: Final = self._get_paginated_response(
             endpoint=Endpoint.ABSENCE_TYPES,
@@ -92,6 +101,16 @@ class Client:
         return [absence_type for response in responses_generator for absence_type in response.data]
 
     def get_absence_type(self, id_: str) -> AbsenceTypesData:
+        """
+        Retrieves a specific absence type by its ID from the Personio API.
+        :param id_: The ID of the absence type to retrieve.
+        :return: An `AbsenceTypesData` instance representing the absence type.
+        :raises BadRequestError: If the request fails with a 400 Bad Request status code.
+        :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
+        :raises UnexpectedResponse: If the response does not match the expected data.
+        :raises CommunicationError: If there is a communication error while making the request.
+        :raises AuthenticationError: If the authentication process fails.
+        """
         # See: https://developer.personio.de/reference/get_v2-absence-types-id
         return self._send_get_request(
             endpoint=Endpoint.ABSENCE_TYPES,
