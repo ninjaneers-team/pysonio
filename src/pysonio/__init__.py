@@ -81,6 +81,7 @@ class Client:
         self._base_url: Final = base_url
 
     def get_absence_types(self) -> list[AbsenceTypesData]:
+        # See: https://developer.personio.de/reference/get_v2-absence-types
         responses_generator: Final = self._get_paginated_response(
             endpoint=Endpoint.ABSENCE_TYPES,
             response_model=ListAbsenceTypesResponse,
@@ -89,6 +90,15 @@ class Client:
         )
         # Flatten the lists and return the result.
         return [absence_type for response in responses_generator for absence_type in response.data]
+
+    def get_absence_type(self, id_: str) -> AbsenceTypesData:
+        # See: https://developer.personio.de/reference/get_v2-absence-types-id
+        return self._send_get_request(
+            endpoint=Endpoint.ABSENCE_TYPES,
+            path_params=[id_],
+            response_model=AbsenceTypesData,
+            is_beta_endpoint=True,
+        )
 
     def _get_paginated_response[ResponseModel: BaseModel](
         self,
@@ -101,7 +111,7 @@ class Client:
         next_query_params = PaginationQueryParams()
         while True:
             try:
-                response = self.send_get_request(
+                response = self._send_get_request(
                     endpoint,
                     query_params=next_query_params,
                     response_model=response_model,
@@ -146,21 +156,27 @@ class Client:
                 # We can stop here.
                 break
 
-    def send_get_request[QueryParams: BaseModel, ResponseModel: BaseModel](
+    def _send_get_request[QueryParams: BaseModel, ResponseModel: BaseModel](
         self,
         endpoint: Endpoint,
         *,
-        query_params: QueryParams,
+        path_params: Optional[list[str]] = None,
+        query_params: Optional[QueryParams] = None,
         response_model: type[ResponseModel],
         expected_status_code: HTTPStatus = HTTPStatus.OK,
         is_beta_endpoint: bool = False,
         omit_authentication: bool = False,
     ) -> ResponseModel:
         # We don't want to send empty (`None`) query parameters to the API, so we filter them out.
-        query_params_dict: Final = {key: value for key, value in query_params.model_dump().items() if value is not None}
+        query_params_dict: Final = (
+            {}
+            if query_params is None
+            else {key: value for key, value in query_params.model_dump().items() if value is not None}
+        )
 
         url_encoded_params: Final = "" if not query_params_dict else f"?{urllib.parse.urlencode(query_params_dict)}"
-        endpoint_url: Final = self._get_endpoint_url(endpoint)
+        joined_path_params: Final = "" if path_params is None or not path_params else f"/{'/'.join(path_params)}"
+        endpoint_url: Final = f"{self._get_endpoint_url(endpoint)}{joined_path_params}"
         url: Final = f"{endpoint_url}{url_encoded_params}"
         headers: Final = self._get_headers(
             content_type=None,
