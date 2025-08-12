@@ -1,0 +1,37 @@
+import random
+from collections import defaultdict
+from typing import Final
+
+import pytest
+
+from pysonio import Client
+from pysonio import PersonData
+
+
+@pytest.fixture
+def persons(client: Client) -> list[PersonData]:
+    # We set a higher limit to reduce the pagination overhead in tests.
+    return client.get_persons(limit=50)
+
+
+def test_get_all_persons(client: Client) -> None:
+    # This will use pagination due to the default limit of 10.
+    persons: Final = client.get_persons()
+    assert persons  # No empty list.
+
+
+def test_get_person_by_first_name(client: Client, persons: list[PersonData]) -> None:
+    persons_by_first_name: defaultdict[str, list[PersonData]] = defaultdict(list)
+    for person in persons:
+        persons_by_first_name[person.first_name].append(person)
+
+    assert persons_by_first_name
+
+    # We only perform the test with one random first name to speed up the tests.
+    first_name, person_list = random.choice(list(persons_by_first_name.items()))
+
+    persons_with_this_first_name = client.get_persons(first_name=first_name)
+    assert persons_with_this_first_name
+    assert len(persons_with_this_first_name) == len(person_list)
+    for person in persons_with_this_first_name:
+        assert person.first_name == first_name

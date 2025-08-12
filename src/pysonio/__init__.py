@@ -19,6 +19,7 @@ from pysonio.errors import BadRequestError
 from pysonio.errors import CommunicationError
 from pysonio.errors import ForbiddenError
 from pysonio.errors import UnexpectedResponse
+from pysonio.filters import DateFilter
 from pysonio.models.absence_types import AbsenceTypesData
 from pysonio.models.absence_types import ListAbsenceTypesRequest as ListAbsenceTypesRequest
 from pysonio.models.absence_types import ListAbsenceTypesResponse as ListAbsenceTypesResponse
@@ -29,6 +30,9 @@ from pysonio.models.authentication import AuthToken
 from pysonio.models.error_response import ErrorResponse
 from pysonio.models.pagination import PaginatedResponse
 from pysonio.models.pagination import PaginationQueryParams
+from pysonio.models.persons import ListPersonsQueryParams
+from pysonio.models.persons import ListPersonsResponse
+from pysonio.models.persons import PersonData
 from pysonio.utils import extract_query_params
 from pysonio.utils import is_token_valid
 from pysonio.utils import is_upper_snake_case
@@ -78,6 +82,39 @@ class Client:
 
         self._base_url: Final = base_url
 
+    def get_persons(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        email: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        preferred_name: Optional[str] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
+    ) -> list[PersonData]:
+        # See: https://developer.personio.de/reference/get_v2-persons
+        query_params: Final = ListPersonsQueryParams.from_params(
+            limit=limit,
+            id_=id_,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            preferred_name=preferred_name,
+            created_at_filters=created_at_filters,
+            updated_at_filters=updated_at_filters,
+        )
+        responses_generator: Final = self._get_paginated_response(
+            endpoint=Endpoint.PERSONS,
+            query_params=query_params,
+            response_model=ListPersonsResponse,
+            expected_status_code=HTTPStatus.OK,
+            is_beta_endpoint=False,
+        )
+        # Flatten the lists and return the result.
+        return [person for response in responses_generator for person in response.data]
+
     def get_absence_types(self) -> list[AbsenceTypesData]:
         """
         Retrieves a list of all absence types from the Personio API.
@@ -117,15 +154,16 @@ class Client:
             is_beta_endpoint=True,
         )
 
-    def _get_paginated_response[ResponseModel: BaseModel](
+    def _get_paginated_response[QueryParams: BaseModel, ResponseModel: BaseModel](
         self,
         *,
+        query_params: Optional[QueryParams] = None,
         endpoint: Endpoint,
         response_model: type[ResponseModel],
         expected_status_code: HTTPStatus,
         is_beta_endpoint: bool,
     ) -> Generator[ResponseModel]:
-        next_query_params = PaginationQueryParams()
+        next_query_params = PaginationQueryParams() if query_params is None else query_params
         while True:
             try:
                 response = self._send_get_request(
