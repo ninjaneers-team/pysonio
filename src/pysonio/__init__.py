@@ -1,8 +1,5 @@
-import re
 import urllib.parse
 from collections.abc import Generator
-from datetime import datetime
-from datetime import timedelta
 from http import HTTPStatus
 from json import JSONDecodeError
 from typing import Final
@@ -32,13 +29,14 @@ from pysonio.models.authentication import AuthToken
 from pysonio.models.error_response import ErrorResponse
 from pysonio.models.pagination import PaginatedResponse
 from pysonio.models.pagination import PaginationQueryParams
+from pysonio.utils import extract_query_params
+from pysonio.utils import is_token_valid
+from pysonio.utils import is_upper_snake_case
 
 
 @final
 class Client:
     _DEFAULT_BASE_URL = "https://api.personio.de"
-    _UPPER_SNAKE_CASE_PATTERN = re.compile(r"^[A-Z0-9]+(?:_[A-Z0-9]+)*$")
-    _TOKEN_EXPIRATION_MARGIN_SECONDS = 3 * 60  # 3 minutes
 
     def __init__(
         self,
@@ -55,13 +53,13 @@ class Client:
 
         # According to https://developer.personio.de/reference/include-our-headers-in-your-requests,
         # the identifiers must be in upper snake case format.
-        if not self._is_upper_snake_case(personio_partner_identifier):
+        if not is_upper_snake_case(personio_partner_identifier):
             msg: Final = (
                 f"Invalid Personio partner identifier: {personio_partner_identifier}. "
                 + "It must be in upper snake case format."
             )
             raise ValueError(msg)
-        if not self._is_upper_snake_case(personio_app_identifier):
+        if not is_upper_snake_case(personio_app_identifier):
             msg: Final = (
                 f"Invalid Personio app identifier: {personio_app_identifier}. "
                 + "It must be in upper snake case format."
@@ -167,7 +165,7 @@ class Client:
                 # Pagination has ended.
                 break
 
-            next_url_query_params = Client._extract_query_params(paginated_response.meta.links.next.href)
+            next_url_query_params = extract_query_params(paginated_response.meta.links.next.href)
             try:
                 next_query_params = PaginationQueryParams.model_validate(next_url_query_params)
             except ValidationError:
@@ -216,12 +214,6 @@ class Client:
             response_model,
             expected_status_code=expected_status_code,
         )
-
-    @staticmethod
-    def _extract_query_params(url: str) -> dict[str, str | list[str]]:
-        params: Final = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query, keep_blank_values=True)
-        # If a query parameter has multiple values, it will be returned as a list.
-        return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
 
     def _send_post_request[Payload: BaseModel, ResponseModel: BaseModel](
         self,
@@ -321,15 +313,6 @@ class Client:
 
         return validated_response
 
-    @staticmethod
-    def _is_upper_snake_case(name: str) -> bool:
-        """
-        Checks if the provided name is in upper snake case format.
-        :param name: The name to check.
-        :return: True if the name is in upper snake case format, False otherwise.
-        """
-        return Client._UPPER_SNAKE_CASE_PATTERN.fullmatch(name) is not None
-
     def _get_auth_token(self) -> AuthToken:
         """
         Retrieves the authentication token for the client. If the token is not
@@ -339,7 +322,7 @@ class Client:
         :raises CommunicationError: If there is a communication error while obtaining the token.
         :raises AuthenticationError: If the authentication process fails.
         """
-        if self._auth_token is None or not Client._is_token_valid(self._auth_token):
+        if self._auth_token is None or not is_token_valid(self._auth_token):
             self._auth_token = self._obtain_auth_token()
         return self._auth_token
 
@@ -373,17 +356,6 @@ class Client:
             raise AuthenticationError() from e
 
         return AuthToken.from_auth_response(auth_response)
-
-    @staticmethod
-    def _is_token_valid(token: AuthToken) -> bool:
-        """
-        Checks if the provided token is valid. A token is considered valid if it is
-        not None and has not expired.
-        :param token: The authentication token to check.
-        :return: True if the token is valid, False otherwise.
-        """
-        expiration_time: Final = token.expires_at - timedelta(seconds=Client._TOKEN_EXPIRATION_MARGIN_SECONDS)
-        return datetime.now() < expiration_time
 
     def _get_endpoint_url(self, endpoint: Endpoint) -> str:
         """

@@ -7,6 +7,7 @@ import pytest
 from pysonio import AuthenticationError
 from pysonio import AuthToken
 from pysonio import Client
+from pysonio import is_token_valid
 from pysonio.models.authentication import OAuth2ErrorType
 
 
@@ -31,20 +32,20 @@ def test_invalid_credentials_raises_authentication_error() -> None:
 
 def test_valid_credentials_returns_valid_auth_token(client: Client) -> None:
     auth_token: Final = client._get_auth_token()
-    assert Client._is_token_valid(auth_token)
+    assert is_token_valid(auth_token)
 
 
 def test_auth_token_is_cached(client: Client) -> None:
     auth_token1: Final = client._get_auth_token()
     auth_token2: Final = client._get_auth_token()
     assert auth_token1 == auth_token2
-    assert Client._is_token_valid(auth_token1)
-    assert Client._is_token_valid(auth_token2)
+    assert is_token_valid(auth_token1)
+    assert is_token_valid(auth_token2)
 
 
 def test_auth_token_expires_and_is_refreshed(client: Client) -> None:
     auth_token: Final = client._get_auth_token()
-    assert Client._is_token_valid(auth_token)
+    assert is_token_valid(auth_token)
 
     # Simulate token expiration by setting the expiration time to the past.
     client._auth_token = AuthToken(
@@ -57,4 +58,4 @@ def test_auth_token_expires_and_is_refreshed(client: Client) -> None:
     # The next call should refresh the token.
     new_auth_token: Final = client._get_auth_token()
     assert new_auth_token != auth_token
-    assert Client._is_token_valid(new_auth_token)
+    assert is_token_valid(new_auth_token)
