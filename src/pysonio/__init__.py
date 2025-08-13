@@ -23,8 +23,12 @@ from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
 from pysonio.errors import UnexpectedResponse
 from pysonio.filters import DateFilter
+from pysonio.filters import DateRangeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
 from pysonio.models.absence_balance import GetAbsenceBalanceResponse
+from pysonio.models.absence_periods import AbsencePeriodData
+from pysonio.models.absence_periods import ListAbsencePeriodsQueryParams
+from pysonio.models.absence_periods import ListAbsencePeriodsResponse
 from pysonio.models.absence_types import AbsenceTypesData
 from pysonio.models.absence_types import ListAbsenceTypesRequest as ListAbsenceTypesRequest
 from pysonio.models.absence_types import ListAbsenceTypesResponse as ListAbsenceTypesResponse
@@ -360,7 +364,7 @@ class Pysonio:
             yield response
 
             try:
-                paginated_response = PaginatedResponse.model_validate(response.model_dump())
+                paginated_response = PaginatedResponse.model_validate(response.model_dump(by_alias=True))
             except ValidationError:
                 # Pagination has ended.
                 break
@@ -386,9 +390,7 @@ class Pysonio:
     ) -> ResponseModel:
         # We don't want to send empty (`None`) query parameters to the API, so we filter them out.
         query_params_dict: Final = (
-            {}
-            if query_params is None
-            else {key: value for key, value in query_params.model_dump().items() if value is not None}
+            None if query_params is None else query_params.model_dump(by_alias=True, exclude_none=True)
         )
 
         url_encoded_params: Final = "" if not query_params_dict else f"?{urllib.parse.urlencode(query_params_dict)}"
@@ -438,13 +440,13 @@ class Pysonio:
                     response: Final = requests.post(
                         url,
                         headers=headers,
-                        data=payload.model_dump(),
+                        data=payload.model_dump(by_alias=True),
                     )
                 case ContentType.JSON:
                     response: Final = requests.post(
                         url,
                         headers=headers,
-                        json=payload.model_dump(),
+                        json=payload.model_dump(by_alias=True),
                     )
         except RequestException as e:
             msg: Final = f"Failed to send POST request to {url}: {e}"

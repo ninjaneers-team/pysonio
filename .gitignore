@@ -12,3 +12,4 @@ wheels/
 .vscode/
 
 .env
+src/pysonio/sandbox.py

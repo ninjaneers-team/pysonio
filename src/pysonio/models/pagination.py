@@ -1,7 +1,9 @@
+from typing import Annotated
 from typing import Optional
 from typing import final
 
 from pydantic import BaseModel
+from pydantic import Field
 
 
 @final
@@ -33,4 +35,4 @@ class PaginationMeta(BaseModel):
 
 @final
 class PaginatedResponse(BaseModel):
-    meta: PaginationMeta  # No alias here because we use this only to validate an already validated response.
+    meta: Annotated[PaginationMeta, Field(alias="_meta")]
