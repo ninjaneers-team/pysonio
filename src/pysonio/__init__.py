@@ -240,10 +240,37 @@ class Client:
                 f"Personio API returned a not found error for employee ID {person_id}. ",
             ) from e
 
-    def get_absence_types(self) -> list[AbsenceTypesData]:
+    @overload
+    def get_absence_types(
+        self,
+        *,
+        limit: Optional[int] = None,
+        streamed: Literal[False] = False,
+    ) -> list[AbsenceTypesData]: ...
+
+    @overload
+    def get_absence_types(
+        self,
+        *,
+        limit: Optional[int] = None,
+        streamed: Literal[True] = True,
+    ) -> Generator[list[AbsenceTypesData]]: ...
+
+    def get_absence_types(
+        self,
+        *,
+        limit: Optional[int] = None,
+        streamed: bool = False,
+    ) -> list[AbsenceTypesData] | Generator[list[AbsenceTypesData]]:
         """
         Retrieves a list of all absence types from the Personio API.
 
+        Note that the `limit` parameter does not limit the total number of results returned, but rather the number of
+        results returned per page. Pagination is handled automatically, so you'll always receive all absence types.
+
+        :param limit: The maximum number of results to return per page (defaults to 100, maximum is 100).
+        :param streamed: If True, returns a generator that yields lists of `AbsenceTypesData` instances for each page.
+                         If False, returns a single flattened list of all `AbsenceTypesData` instances.
         :return: A list of `AbsenceTypesData` instances representing the absence types.
         :raises BadRequestError: If the request fails with a 400 Bad Request status code.
         :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
@@ -254,11 +281,20 @@ class Client:
         # See: https://developer.personio.de/reference/get_v2-absence-types
         responses_generator: Final = self._get_paginated_response(
             endpoint=Endpoint.ABSENCE_TYPES,
+            query_params=ListAbsenceTypesRequest(limit=limit),
             response_model=ListAbsenceTypesResponse,
             expected_status_code=HTTPStatus.OK,
             is_beta_endpoint=True,
         )
-        # Flatten the lists and return the result.
+
+        def result_generator() -> Generator[list[AbsenceTypesData]]:
+            for response in responses_generator:
+                yield response.data
+
+        if streamed:
+            return result_generator()
+
+        # If we're not streaming, we flatten the lists and return the result.
         return [absence_type for response in responses_generator for absence_type in response.data]
 
     def get_absence_type(self, id_: str) -> AbsenceTypesData:

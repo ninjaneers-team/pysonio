@@ -27,3 +27,16 @@ def test_get_absence_type(client: Client, absence_types: list[AbsenceTypesData])
     for absence_type in absence_types:
         absence_type_data: AbsenceTypesData = client.get_absence_type(absence_type.id)
         assert absence_type_data == absence_type
+
+
+def test_get_absence_types_streamed(client: Client, absence_types: list[AbsenceTypesData]) -> None:
+    pagination_size: Final = 2
+    assert len(absence_types) > pagination_size  # We need more than one page to test streaming.
+    current_offset = 0
+    for page in client.get_absence_types(limit=pagination_size, streamed=True):
+        expected_page_size = min(pagination_size, len(absence_types) - current_offset)
+        assert len(page) == expected_page_size
+        for i, absence_type in enumerate(page):
+            assert absence_type == absence_types[current_offset + i]
+        current_offset += expected_page_size
+    assert current_offset == len(absence_types)  # We should have processed all absence types
