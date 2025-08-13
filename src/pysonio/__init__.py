@@ -307,6 +307,35 @@ class Pysonio:
         # If we're not streaming, we flatten the lists and return the result.
         return [absence_period for response in responses_generator for absence_period in response.data]
 
+    def get_absence_period(self, id_: str) -> AbsencePeriodData:
+        try:
+            return self._send_get_request(
+                endpoint=Endpoint.ABSENCE_PERIODS,
+                path_params=[id_],
+                response_model=AbsencePeriodData,
+                is_beta_endpoint=True,
+            )
+        except UnexpectedResponse as e:
+            if e.response.status_code not in (HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND):
+                raise
+            error_response = Pysonio._validate_response(
+                e.response,
+                ErrorResponse,
+                expected_status_code=HTTPStatus(e.response.status_code),
+            )
+            match e.response.status_code:
+                case HTTPStatus.FORBIDDEN:
+                    raise ForbiddenError(
+                        error_response,
+                        "Personio API returned a forbidden error.",
+                    ) from e
+                case HTTPStatus.NOT_FOUND:
+                    raise NotFoundError(
+                        error_response,
+                        f"Personio API returned a not found error for absence period ID {id_}. ",
+                    ) from e
+            raise  # Unreachable, but needed to satisfy the type checker.
+
     def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
         """
         Retrieves the absence balance for a specific employee by their ID from the Personio API.

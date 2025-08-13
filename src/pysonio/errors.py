@@ -158,7 +158,11 @@ class UnprocessableContentError(CommunicationError):
 
 @final
 class NotFoundError(CommunicationError):
-    def __init__(self, error_response: V1ErrorResponse, message: str) -> None:
+    def __init__(
+        self,
+        error_response: V1ErrorResponse | ErrorResponse,
+        message: str,
+    ) -> None:
         """
         Exception raised when a not found error occurs.
 
@@ -169,6 +173,6 @@ class NotFoundError(CommunicationError):
         self._error_response: Final = error_response
 
     @property
-    def error_response(self) -> V1ErrorResponse:
+    def error_response(self) -> V1ErrorResponse | ErrorResponse:
         """Returns the error response that caused this exception."""
         return self._error_response
