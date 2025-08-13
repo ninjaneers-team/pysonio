@@ -139,6 +139,24 @@ class ForbiddenError(CommunicationError):
 
 
 @final
+class ConflictError(CommunicationError):
+    def __init__(self, error_response: ErrorResponse, message: str) -> None:
+        """
+        Exception raised when a conflict error occurs.
+
+        :param error_response: The error response containing details about the conflict.
+        :param message: A message describing the error.
+        """
+        super().__init__(f"409 Conflict: {message}")
+        self._error_response: Final = error_response
+
+    @property
+    def error_response(self) -> ErrorResponse:
+        """Returns the error response that caused this exception."""
+        return self._error_response
+
+
+@final
 class UnprocessableContentError(CommunicationError):
     def __init__(self, error_response: ErrorResponse, message: str) -> None:
         """

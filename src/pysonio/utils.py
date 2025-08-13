@@ -3,6 +3,9 @@ import urllib.parse
 from datetime import datetime
 from datetime import timedelta
 from typing import Final
+from typing import Optional
+
+from pydantic import BaseModel
 
 from pysonio import AuthToken
 
@@ -40,3 +43,16 @@ def extract_query_params(url: str) -> dict[str, str | list[str]]:
     params: Final = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query, keep_blank_values=True)
     # If a query parameter has multiple values, it will be returned as a list.
     return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
+
+
+def url_encode_query_params[QueryParams: BaseModel](query_params: Optional[QueryParams]) -> str:
+    if query_params is None:
+        return ""
+
+    # We don't want to send empty (`None`) query parameters to the API, so we filter them out.
+    query_params_dict: Final = query_params.model_dump(by_alias=True, exclude_none=True)
+
+    # Convert booleans to lowercase strings.
+    normalized_params: Final = {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in query_params_dict.items()}
+
+    return "" if not query_params_dict else f"?{urllib.parse.urlencode(normalized_params)}"

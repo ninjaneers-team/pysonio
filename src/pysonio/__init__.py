@@ -1,4 +1,3 @@
-import urllib.parse
 from collections.abc import Generator
 from http import HTTPStatus
 from json import JSONDecodeError
@@ -19,6 +18,7 @@ from pysonio.endpoints import Endpoint
 from pysonio.errors import AuthenticationError
 from pysonio.errors import BadRequestError
 from pysonio.errors import CommunicationError
+from pysonio.errors import ConflictError
 from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
 from pysonio.errors import UnexpectedResponse
@@ -28,8 +28,15 @@ from pysonio.filters import DateRangeFilter as DateRangeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
 from pysonio.models.absence_balance import GetAbsenceBalanceResponse
 from pysonio.models.absence_periods import AbsencePeriodData as AbsencePeriodData
+from pysonio.models.absence_periods import AbsenceType
+from pysonio.models.absence_periods import CreateAbsencePeriodQueryParams
+from pysonio.models.absence_periods import CreateAbsencePeriodRequest
+from pysonio.models.absence_periods import CreateAbsencePeriodResponse
+from pysonio.models.absence_periods import EndsAt
 from pysonio.models.absence_periods import ListAbsencePeriodsQueryParams as ListAbsencePeriodsQueryParams
 from pysonio.models.absence_periods import ListAbsencePeriodsResponse as ListAbsencePeriodsResponse
+from pysonio.models.absence_periods import Person
+from pysonio.models.absence_periods import StartsFrom
 from pysonio.models.absence_types import AbsenceTypesData
 from pysonio.models.absence_types import ListAbsenceTypesRequest as ListAbsenceTypesRequest
 from pysonio.models.absence_types import ListAbsenceTypesResponse as ListAbsenceTypesResponse
@@ -47,6 +54,7 @@ from pysonio.models.persons import PersonData
 from pysonio.utils import extract_query_params
 from pysonio.utils import is_token_valid
 from pysonio.utils import is_upper_snake_case
+from pysonio.utils import url_encode_query_params
 
 
 @final
@@ -336,6 +344,70 @@ class Pysonio:
                     ) from e
             raise  # Unreachable, but needed to satisfy the type checker.
 
+    def create_absence_period(
+        self,
+        *,
+        person_id: str,
+        starts_from: StartsFrom,
+        ends_at: Optional[EndsAt],
+        comment: Optional[str] = None,
+        absence_type_id: str,
+        skip_approval: Optional[bool] = None,
+    ) -> str:
+        query_params: Final = CreateAbsencePeriodQueryParams(skip_approval=skip_approval)
+        body: Final = CreateAbsencePeriodRequest(
+            person=Person(id=person_id),
+            starts_from=starts_from,
+            ends_at=ends_at,
+            comment=comment,
+            absence_type=AbsenceType(id=absence_type_id),
+        )
+        try:
+            return self._send_post_request(
+                endpoint=Endpoint.ABSENCE_PERIODS,
+                query_params=query_params,
+                payload=body,
+                content_type=ContentType.JSON,
+                response_model=CreateAbsencePeriodResponse,
+                expected_status_code=HTTPStatus.CREATED,
+                is_beta_endpoint=True,
+            ).id
+        except UnexpectedResponse as e:
+            if e.response.status_code not in (
+                HTTPStatus.BAD_REQUEST,
+                HTTPStatus.FORBIDDEN,
+                HTTPStatus.CONFLICT,
+                HTTPStatus.UNPROCESSABLE_CONTENT,
+            ):
+                raise
+            error_response = Pysonio._validate_response(
+                e.response,
+                ErrorResponse,
+                expected_status_code=HTTPStatus(e.response.status_code),
+            )
+            match e.response.status_code:
+                case HTTPStatus.BAD_REQUEST:
+                    raise BadRequestError(
+                        error_response,
+                        "Personio API returned a bad request error.",
+                    ) from e
+                case HTTPStatus.FORBIDDEN:
+                    raise ForbiddenError(
+                        error_response,
+                        "Personio API returned a forbidden error.",
+                    ) from e
+                case HTTPStatus.CONFLICT:
+                    raise ConflictError(
+                        error_response,
+                        "Personio API returned a conflict error.",
+                    ) from e
+                case HTTPStatus.UNPROCESSABLE_CONTENT:
+                    raise UnprocessableContentError(
+                        error_response,
+                        "Personio API returned an unprocessable content error.",
+                    ) from e
+            raise  # Unreachable, but needed to satisfy the type checker.
+
     def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
         """
         Retrieves the absence balance for a specific employee by their ID from the Personio API.
@@ -523,12 +595,7 @@ class Pysonio:
         is_beta_endpoint: bool = False,
         omit_authentication: bool = False,
     ) -> ResponseModel:
-        # We don't want to send empty (`None`) query parameters to the API, so we filter them out.
-        query_params_dict: Final = (
-            None if query_params is None else query_params.model_dump(by_alias=True, exclude_none=True)
-        )
-
-        url_encoded_params: Final = "" if not query_params_dict else f"?{urllib.parse.urlencode(query_params_dict)}"
+        url_encoded_params: Final = url_encode_query_params(query_params)
         joined_path_params: Final = "" if path_params is None or not path_params else f"/{'/'.join(path_params)}"
         endpoint_url: Final = f"{self._get_endpoint_url(endpoint)}{joined_path_params}"
         url: Final = f"{endpoint_url}{url_encoded_params}"
@@ -552,10 +619,15 @@ class Pysonio:
             expected_status_code=expected_status_code,
         )
 
-    def _send_post_request[Payload: BaseModel, ResponseModel: BaseModel](
+    def _send_post_request[
+        QueryParams: BaseModel,
+        Payload: BaseModel,
+        ResponseModel: BaseModel,
+    ](
         self,
         endpoint: Endpoint,
         *,
+        query_params: Optional[QueryParams] = None,
         payload: Payload,
         content_type: ContentType,
         response_model: type[ResponseModel],
@@ -563,7 +635,8 @@ class Pysonio:
         is_beta_endpoint: bool = False,
         omit_authentication: bool = False,
     ) -> ResponseModel:
-        url: Final = self._get_endpoint_url(endpoint)
+        url_encoded_params: Final = url_encode_query_params(query_params)
+        url: Final = f"{self._get_endpoint_url(endpoint)}{url_encoded_params}"
         headers: Final = self._get_headers(
             content_type,
             is_beta_endpoint=is_beta_endpoint,
@@ -581,7 +654,7 @@ class Pysonio:
                     response: Final = requests.post(
                         url,
                         headers=headers,
-                        json=payload.model_dump(by_alias=True),
+                        data=payload.model_dump_json(by_alias=True),
                     )
         except RequestException as e:
             msg: Final = f"Failed to send POST request to {url}: {e}"

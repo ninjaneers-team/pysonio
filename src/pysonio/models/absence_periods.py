@@ -128,6 +128,11 @@ class ListAbsencePeriodsResponse(BaseModel):
 
 
 @final
+class CreateAbsencePeriodQueryParams(BaseModel):
+    skip_approval: Optional[bool] = None  # Defaults to `False` if not provided.
+
+
+@final
 class CreateAbsencePeriodRequest(BaseModel):
     """
     Modelled after: https://developer.personio.de/reference/post_v2-absence-periods
@@ -147,7 +152,7 @@ class CreateAbsencePeriodResponse(BaseModel):
     """
 
     id: str
-    # The response also contains a `_meta` field, but it's omitted here since we don't need it.
+    meta: Annotated[Optional[MetaWithLinks], Field(default=None, alias="_meta")]
 
 
 @final
