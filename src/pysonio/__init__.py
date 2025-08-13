@@ -3,8 +3,10 @@ from collections.abc import Generator
 from http import HTTPStatus
 from json import JSONDecodeError
 from typing import Final
+from typing import Literal
 from typing import Optional
 from typing import final
+from typing import overload
 
 import requests
 from pydantic import BaseModel
@@ -56,6 +58,24 @@ class Client:
         scopes: Optional[list[str]] = None,
         base_url: str = _DEFAULT_BASE_URL,
     ) -> None:
+        """
+        The Personio API client. All interactions with the Personio API must be done through an instance of this client.
+        It handles authentication, request sending, and response validation. You should not create multiple instances
+        of this client for the same Personio account.
+
+        Note that this does not automatically authenticate the client. Authentication happens lazily when the first
+        request is made that requires an access token. The access token is cached and reused for subsequent requests
+        until it expires, at which point it will be refreshed automatically.
+
+        :param client_id: Your Personio API client ID.
+        :param client_secret: Your Personio API client secret.
+        :param personio_partner_identifier: Your Personio partner identifier (must be in upper snake case format).
+        :param personio_app_identifier: Your Personio app identifier (must be in upper snake case format).
+        :param scopes: A list of scopes to request for the access token. If `None`, all available scopes will be
+                       requested.
+        :param base_url: The base URL for the Personio API. Defaults to "https://api.personio.de".
+        :raises ValueError: If the provided identifiers are not in upper snake case format.
+        """
         self._client_id: Final = client_id
         self._client_secret: Final = client_secret
 
@@ -86,6 +106,7 @@ class Client:
 
         self._base_url: Final = base_url
 
+    @overload
     def get_persons(
         self,
         *,
@@ -97,7 +118,62 @@ class Client:
         preferred_name: Optional[str] = None,
         created_at_filters: Optional[list[DateFilter]] = None,
         updated_at_filters: Optional[list[DateFilter]] = None,
-    ) -> list[PersonData]:
+        streamed: Literal[False] = False,
+    ) -> list[PersonData]: ...
+
+    @overload
+    def get_persons(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        email: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        preferred_name: Optional[str] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
+        streamed: Literal[True] = True,
+    ) -> Generator[list[PersonData]]: ...
+
+    def get_persons(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        email: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        preferred_name: Optional[str] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
+        streamed: bool = False,
+    ) -> list[PersonData] | Generator[list[PersonData]]:
+        """
+        Retrieves a list of persons from the Personio API. You can filter the results by various parameters such as
+        ID, email, first name, last name, etc.
+
+        Note that the `limit` parameter does not limit the total number of results returned, but rather the number of
+        results returned per page. Pagination is handled automatically, so you'll always receive all results that match
+        the provided filters (regardless of the `limit` parameter).
+
+        :param limit: The maximum number of results to return per page (defaults to 10, maximum is 50).
+        :param id_: Filter by person ID.
+        :param email: Filter by email address.
+        :param first_name: Filter by first name.
+        :param last_name: Filter by last name.
+        :param preferred_name: Filter by preferred name.
+        :param created_at_filters: Filter by creation date. This can be a list of `DateFilter` instances.
+        :param updated_at_filters: Filter by last update date. This can be a list of `DateFilter` instances.
+        :param streamed: If True, returns a generator that yields lists of `PersonData` instances for each page.
+                         If False, returns a single flattened list of all `PersonData` instances that match the filters.
+        :return: A list of `PersonData` instances representing the persons that match the filters.
+        :raises BadRequestError: If the request fails with a 400 Bad Request status code.
+        :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
+        :raises UnexpectedResponse: If the response does not match the expected data.
+        :raises CommunicationError: If there is a communication error while making the request.
+        :raises AuthenticationError: If the authentication process fails.
+        """
         # See: https://developer.personio.de/reference/get_v2-persons
         query_params: Final = ListPersonsQueryParams.from_params(
             limit=limit,
@@ -116,10 +192,34 @@ class Client:
             expected_status_code=HTTPStatus.OK,
             is_beta_endpoint=False,
         )
-        # Flatten the lists and return the result.
+
+        def result_generator() -> Generator[list[PersonData]]:
+            for response in responses_generator:
+                yield response.data
+
+        if streamed:
+            return result_generator()
+
+        # If we're not streaming, we flatten the lists and return the result.
         return [person for response in responses_generator for person in response.data]
 
     def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
+        """
+        Retrieves the absence balance for a specific employee by their ID from the Personio API.
+
+        Note: This is a V1 endpoint that requires the employee ID to be a digit string. The `get_persons()` method
+              internally uses a V2 endpoint that returns string IDs. Those seem to always be numeric, so you should
+              not have to worry about this in practice. However, we still perform a check before making the request.
+
+        :param person_id: The ID of the employee for whom to retrieve the absence balance. This must be a digit string.
+        :return: A list of `AbsenceBalanceData` instances representing the absence balance for the employee.
+        :raises NotFoundError: If the employee with the given ID does not exist.
+        :raises UnexpectedResponse: If the response does not match the expected data.
+        :raises CommunicationError: If there is a communication error while making the request.
+        :raises AuthenticationError: If the authentication process fails.
+        :raises ValueError: If the provided person ID is not a digit string.
+        """
+        # See: https://developer.personio.de/v1.0/reference/get_company-employees-employee-id-absences-balance
         if not person_id.isdigit():
             raise ValueError(f"Invalid person ID: {person_id}. It must be a digit string.")
         try:
@@ -143,6 +243,7 @@ class Client:
     def get_absence_types(self) -> list[AbsenceTypesData]:
         """
         Retrieves a list of all absence types from the Personio API.
+
         :return: A list of `AbsenceTypesData` instances representing the absence types.
         :raises BadRequestError: If the request fails with a 400 Bad Request status code.
         :raises ForbiddenError: If the request fails with a 403 Forbidden status code.

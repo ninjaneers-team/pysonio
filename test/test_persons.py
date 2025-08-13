@@ -34,3 +34,14 @@ def test_all_person_ids_are_numeric(client: Client, persons: list[PersonData]) -
     # For that we have to use a V1 endpoint that requires numeric IDs. However, the V2
     # endpoint to retrieve persons returns string IDs.
     assert all(person.id.isdigit() for person in persons)
+
+
+def test_get_persons_streamed(client: Client, persons: list[PersonData]) -> None:
+    pagination_size: Final = 20
+    current_offset = 0
+    for page in client.get_persons(limit=pagination_size, streamed=True):
+        expected_page_size = min(pagination_size, len(persons) - current_offset)
+        assert len(page) == expected_page_size
+        for i, person in enumerate(page):
+            assert person == persons[current_offset + i]
+        current_offset += expected_page_size
