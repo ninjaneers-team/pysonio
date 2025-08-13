@@ -6,13 +6,13 @@ import pytest
 
 from pysonio import AuthenticationError
 from pysonio import AuthToken
-from pysonio import Client
+from pysonio import Pysonio
 from pysonio import is_token_valid
 from pysonio.models.authentication import OAuth2ErrorType
 
 
 def test_invalid_credentials_raises_authentication_error() -> None:
-    client: Final = Client(
+    client: Final = Pysonio(
         client_id="invalid_client_id",
         client_secret="invalid_client_secret",
         personio_partner_identifier="SOME_PARTNER_ID",
@@ -30,12 +30,12 @@ def test_invalid_credentials_raises_authentication_error() -> None:
     )
 
 
-def test_valid_credentials_returns_valid_auth_token(client: Client) -> None:
+def test_valid_credentials_returns_valid_auth_token(client: Pysonio) -> None:
     auth_token: Final = client._get_auth_token()
     assert is_token_valid(auth_token)
 
 
-def test_auth_token_is_cached(client: Client) -> None:
+def test_auth_token_is_cached(client: Pysonio) -> None:
     auth_token1: Final = client._get_auth_token()
     auth_token2: Final = client._get_auth_token()
     assert auth_token1 == auth_token2
@@ -43,7 +43,7 @@ def test_auth_token_is_cached(client: Client) -> None:
     assert is_token_valid(auth_token2)
 
 
-def test_auth_token_expires_and_is_refreshed(client: Client) -> None:
+def test_auth_token_expires_and_is_refreshed(client: Pysonio) -> None:
     auth_token: Final = client._get_auth_token()
     assert is_token_valid(auth_token)
 

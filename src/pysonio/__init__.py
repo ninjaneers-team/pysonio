@@ -45,7 +45,7 @@ from pysonio.utils import is_upper_snake_case
 
 
 @final
-class Client:
+class Pysonio:
     _DEFAULT_BASE_URL = "https://api.personio.de"
 
     def __init__(
@@ -339,7 +339,7 @@ class Client:
                 # We ignore the type error here. This seems to be a false positive from Pyrefly.
                 # TODO: Reproduce this error in a minimal example and report it to the Pyrefly team.
                 actual_status_code: int = e.response.status_code  # type: ignore[bad-assignment]
-                error_response = Client._validate_response(
+                error_response = Pysonio._validate_response(
                     e.response,
                     ErrorResponse,
                     expected_status_code=HTTPStatus(actual_status_code),
@@ -409,7 +409,7 @@ class Client:
             msg: Final = f"Failed to send GET request to {url}: {e}"
             raise CommunicationError(msg) from e
 
-        return Client._validate_response(
+        return Pysonio._validate_response(
             response,
             response_model,
             expected_status_code=expected_status_code,
@@ -450,7 +450,7 @@ class Client:
             msg: Final = f"Failed to send POST request to {url}: {e}"
             raise CommunicationError(msg) from e
 
-        return Client._validate_response(
+        return Pysonio._validate_response(
             response,
             response_model,
             expected_status_code=expected_status_code,
@@ -546,7 +546,7 @@ class Client:
                 omit_authentication=True,
             )
         except UnexpectedResponse as e:
-            error_response: Final = Client._validate_response(
+            error_response: Final = Pysonio._validate_response(
                 e.response,
                 AuthErrorResponse,
                 expected_status_code=HTTPStatus.BAD_REQUEST,

@@ -4,8 +4,8 @@ from typing import Final
 import pytest
 from dotenv import load_dotenv
 
-from pysonio import Client
 from pysonio import PersonData
+from pysonio import Pysonio
 
 load_dotenv()
 
@@ -24,8 +24,8 @@ APP_ID = get_environment_variable_or_raise("APP_ID")
 
 
 @pytest.fixture
-def client() -> Client:
-    return Client(
+def client() -> Pysonio:
+    return Pysonio(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         personio_partner_identifier=PARTNER_ID,
@@ -34,7 +34,7 @@ def client() -> Client:
 
 
 @pytest.fixture
-def persons(client: Client) -> list[PersonData]:
+def persons(client: Pysonio) -> list[PersonData]:
     # We set a higher limit to reduce the pagination overhead in tests.
     persons: Final = client.get_persons(limit=50)
     assert persons  # We cannot work with an empty list.
