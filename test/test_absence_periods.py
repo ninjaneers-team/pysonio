@@ -36,3 +36,9 @@ def test_get_absence_periods_streamed(client: Pysonio, absence_periods: list[Abs
             assert absence_period == absence_periods[current_offset + i]
         current_offset += expected_page_size
     assert current_offset == len(absence_periods)
+
+
+def test_get_absence_period(client: Pysonio, absence_periods: list[AbsencePeriodData]) -> None:
+    expected: Final = random.choice(absence_periods)
+    actual: Final = client.get_absence_period(expected.id)
+    assert actual == expected
