@@ -16,3 +16,15 @@ class Operator(Enum):
 class DateFilter(NamedTuple):
     value: datetime
     operator: Operator = Operator.EQUALS
+
+
+@final
+class RangeFilterOperator(Enum):
+    LESS_THAN_OR_EQUAL = auto()
+    GREATER_THAN_OR_EQUAL = auto()
+
+
+@final
+class DateRangeFilter(NamedTuple):
+    value: datetime
+    operator: RangeFilterOperator

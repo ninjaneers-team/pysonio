@@ -23,12 +23,12 @@ from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
 from pysonio.errors import UnexpectedResponse
 from pysonio.filters import DateFilter
-from pysonio.filters import DateRangeFilter
+from pysonio.filters import DateRangeFilter as DateRangeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
 from pysonio.models.absence_balance import GetAbsenceBalanceResponse
-from pysonio.models.absence_periods import AbsencePeriodData
-from pysonio.models.absence_periods import ListAbsencePeriodsQueryParams
-from pysonio.models.absence_periods import ListAbsencePeriodsResponse
+from pysonio.models.absence_periods import AbsencePeriodData as AbsencePeriodData
+from pysonio.models.absence_periods import ListAbsencePeriodsQueryParams as ListAbsencePeriodsQueryParams
+from pysonio.models.absence_periods import ListAbsencePeriodsResponse as ListAbsencePeriodsResponse
 from pysonio.models.absence_types import AbsenceTypesData
 from pysonio.models.absence_types import ListAbsenceTypesRequest as ListAbsenceTypesRequest
 from pysonio.models.absence_types import ListAbsenceTypesResponse as ListAbsenceTypesResponse
@@ -206,6 +206,98 @@ class Pysonio:
 
         # If we're not streaming, we flatten the lists and return the result.
         return [person for response in responses_generator for person in response.data]
+
+    @overload
+    def get_absence_periods(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        absence_type_id: Optional[str] = None,
+        person_id: Optional[str] = None,
+        starts_from_filters: Optional[list[DateRangeFilter]] = None,
+        end_at_filters: Optional[list[DateRangeFilter]] = None,
+        updated_at_filters: Optional[list[DateRangeFilter]] = None,
+        streamed: Literal[False] = False,
+    ) -> list[AbsencePeriodData]: ...
+
+    @overload
+    def get_absence_periods(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        absence_type_id: Optional[str] = None,
+        person_id: Optional[str] = None,
+        starts_from_filters: Optional[list[DateRangeFilter]] = None,
+        end_at_filters: Optional[list[DateRangeFilter]] = None,
+        updated_at_filters: Optional[list[DateRangeFilter]] = None,
+        streamed: Literal[True] = True,
+    ) -> Generator[list[AbsencePeriodData]]: ...
+
+    def get_absence_periods(
+        self,
+        *,
+        limit: Optional[int] = None,
+        id_: Optional[str] = None,
+        absence_type_id: Optional[str] = None,
+        person_id: Optional[str] = None,
+        starts_from_filters: Optional[list[DateRangeFilter]] = None,
+        end_at_filters: Optional[list[DateRangeFilter]] = None,
+        updated_at_filters: Optional[list[DateRangeFilter]] = None,
+        streamed: bool = False,
+    ) -> list[AbsencePeriodData] | Generator[list[AbsencePeriodData]]:
+        """
+        Retrieves a list of absence periods from the Personio API. You can filter the results by various parameters
+        such as ID, absence type ID, person ID, start date, end date, and last updated date.
+
+        Note that the `limit` parameter does not limit the total number of results returned, but rather the number of
+        results returned per page. Pagination is handled automatically, so you'll always receive all absence periods
+        that match the provided filters (regardless of the `limit` parameter).
+
+        :param limit: The maximum number of results to return per page (defaults to 100, maximum is 100).
+        :param id_: Filter by absence period ID.
+        :param absence_type_id: Filter by absence type ID.
+        :param person_id: Filter by person ID. This is the ID of the employee for whom the absence period is recorded.
+        :param starts_from_filters: Filter by the start date of the absence period. This can be a list of
+                                    `DateRangeFilter` instances.
+        :param end_at_filters: Filter by the end date of the absence period. This can be a list of
+                               `DateRangeFilter` instances.
+        :param updated_at_filters: Filter by the last updated date of the absence period. This can be a list of
+                                   `DateRangeFilter` instances.
+        :param streamed: If True, returns a generator that yields lists of `AbsencePeriodData` instances for each page.
+                         If False, returns a single flattened list of all `AbsencePeriodData` instances that match the
+                         filters.
+        :return: A list of `AbsencePeriodData` instances representing the absence periods that match the filters or
+                 a generator that yields lists of `AbsencePeriodData` instances for each page if `streamed` is True.
+        """
+        # See: https://developer.personio.de/reference/get_v2-absence-periods
+        query_params: Final = ListAbsencePeriodsQueryParams.from_params(
+            limit=limit,
+            id_=id_,
+            absence_type_id=absence_type_id,
+            person_id=person_id,
+            starts_from_filters=starts_from_filters,
+            end_at_filters=end_at_filters,
+            updated_at_filters=updated_at_filters,
+        )
+        responses_generator: Final = self._get_paginated_response(
+            endpoint=Endpoint.ABSENCE_PERIODS,
+            query_params=query_params,
+            response_model=ListAbsencePeriodsResponse,
+            expected_status_code=HTTPStatus.OK,
+            is_beta_endpoint=True,
+        )
+
+        def result_generator() -> Generator[list[AbsencePeriodData]]:
+            for response in responses_generator:
+                yield response.data
+
+        if streamed:
+            return result_generator()
+
+        # If we're not streaming, we flatten the lists and return the result.
+        return [absence_period for response in responses_generator for absence_period in response.data]
 
     def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
         """
