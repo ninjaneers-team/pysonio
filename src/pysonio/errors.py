@@ -7,6 +7,7 @@ import requests
 from pysonio.models.authentication import AuthErrorResponse
 from pysonio.models.authentication import OAuth2ErrorType
 from pysonio.models.error_response import ErrorResponse
+from pysonio.models.error_response import V1ErrorResponse
 
 
 class PysonioError(Exception):
@@ -133,5 +134,23 @@ class ForbiddenError(CommunicationError):
 
     @property
     def error_response(self) -> ErrorResponse:
+        """Returns the error response that caused this exception."""
+        return self._error_response
+
+
+@final
+class NotFoundError(CommunicationError):
+    def __init__(self, error_response: V1ErrorResponse, message: str) -> None:
+        """
+        Exception raised when a not found error occurs.
+
+        :param error_response: The error response containing details about the not found request.
+        :param message: A message describing the error.
+        """
+        super().__init__(f"404 Not Found: {message}")
+        self._error_response: Final = error_response
+
+    @property
+    def error_response(self) -> V1ErrorResponse:
         """Returns the error response that caused this exception."""
         return self._error_response

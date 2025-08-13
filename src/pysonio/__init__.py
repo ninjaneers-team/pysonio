@@ -18,8 +18,11 @@ from pysonio.errors import AuthenticationError
 from pysonio.errors import BadRequestError
 from pysonio.errors import CommunicationError
 from pysonio.errors import ForbiddenError
+from pysonio.errors import NotFoundError
 from pysonio.errors import UnexpectedResponse
 from pysonio.filters import DateFilter
+from pysonio.models.absence_balance import AbsenceBalanceData
+from pysonio.models.absence_balance import GetAbsenceBalanceResponse
 from pysonio.models.absence_types import AbsenceTypesData
 from pysonio.models.absence_types import ListAbsenceTypesRequest as ListAbsenceTypesRequest
 from pysonio.models.absence_types import ListAbsenceTypesResponse as ListAbsenceTypesResponse
@@ -28,6 +31,7 @@ from pysonio.models.authentication import AuthRequest
 from pysonio.models.authentication import AuthResponse
 from pysonio.models.authentication import AuthToken
 from pysonio.models.error_response import ErrorResponse
+from pysonio.models.error_response import V1ErrorResponse
 from pysonio.models.pagination import PaginatedResponse
 from pysonio.models.pagination import PaginationQueryParams
 from pysonio.models.persons import ListPersonsQueryParams
@@ -114,6 +118,27 @@ class Client:
         )
         # Flatten the lists and return the result.
         return [person for response in responses_generator for person in response.data]
+
+    def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
+        if not person_id.isdigit():
+            raise ValueError(f"Invalid person ID: {person_id}. It must be a digit string.")
+        try:
+            return self._send_get_request(
+                endpoint=Endpoint.EMPLOYEES,
+                path_params=[person_id, "absences", "balance"],
+                response_model=GetAbsenceBalanceResponse,
+            ).data
+        except UnexpectedResponse as e:
+            if e.response.status_code != HTTPStatus.NOT_FOUND:
+                raise
+            raise NotFoundError(
+                self._validate_response(
+                    e.response,
+                    V1ErrorResponse,
+                    expected_status_code=HTTPStatus(e.response.status_code),
+                ),
+                f"Personio API returned a not found error for employee ID {person_id}. ",
+            ) from e
 
     def get_absence_types(self) -> list[AbsenceTypesData]:
         """
