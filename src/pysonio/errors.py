@@ -139,6 +139,24 @@ class ForbiddenError(CommunicationError):
 
 
 @final
+class UnprocessableContentError(CommunicationError):
+    def __init__(self, error_response: ErrorResponse, message: str) -> None:
+        """
+        Exception raised when an unprocessable content error occurs.
+
+        :param error_response: The error response containing details about the unprocessable content.
+        :param message: A message describing the error.
+        """
+        super().__init__(f"422 Unprocessable Content: {message}")
+        self._error_response: Final = error_response
+
+    @property
+    def error_response(self) -> ErrorResponse:
+        """Returns the error response that caused this exception."""
+        return self._error_response
+
+
+@final
 class NotFoundError(CommunicationError):
     def __init__(self, error_response: V1ErrorResponse, message: str) -> None:
         """

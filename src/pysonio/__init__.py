@@ -22,6 +22,7 @@ from pysonio.errors import CommunicationError
 from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
 from pysonio.errors import UnexpectedResponse
+from pysonio.errors import UnprocessableContentError
 from pysonio.filters import DateFilter
 from pysonio.filters import DateRangeFilter as DateRangeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
@@ -171,7 +172,8 @@ class Pysonio:
         :param updated_at_filters: Filter by last update date. This can be a list of `DateFilter` instances.
         :param streamed: If True, returns a generator that yields lists of `PersonData` instances for each page.
                          If False, returns a single flattened list of all `PersonData` instances that match the filters.
-        :return: A list of `PersonData` instances representing the persons that match the filters.
+        :return: A list of `PersonData` instances representing the persons that match the filters or a generator that
+                 yields lists of `PersonData` instances for each page if `streamed` is True.
         :raises BadRequestError: If the request fails with a 400 Bad Request status code.
         :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
         :raises UnexpectedResponse: If the response does not match the expected data.
@@ -270,6 +272,12 @@ class Pysonio:
                          filters.
         :return: A list of `AbsencePeriodData` instances representing the absence periods that match the filters or
                  a generator that yields lists of `AbsencePeriodData` instances for each page if `streamed` is True.
+        :raises BadRequestError: If the request fails with a 400 Bad Request status code.
+        :raises ForbiddenError: If the request fails with a 403 Forbidden status code.
+        :raises UnprocessableContentError: If the request fails with a 422 Unprocessable Content status code.
+        :raises UnexpectedResponse: If the response does not match the expected data.
+        :raises CommunicationError: If there is a communication error while making the request.
+        :raises AuthenticationError: If the authentication process fails.
         """
         # See: https://developer.personio.de/reference/get_v2-absence-periods
         query_params: Final = ListAbsencePeriodsQueryParams.from_params(
@@ -440,16 +448,22 @@ class Pysonio:
                     ErrorResponse,
                     expected_status_code=HTTPStatus(actual_status_code),
                 )
-                if e.response.status_code == HTTPStatus.BAD_REQUEST:
-                    raise BadRequestError(
-                        error_response,
-                        "Personio API returned a bad request error.",
-                    ) from e
-                if e.response.status_code == HTTPStatus.FORBIDDEN:
-                    raise ForbiddenError(
-                        error_response,
-                        "Personio API returned a forbidden error.",
-                    ) from e
+                match e.response.status_code:
+                    case HTTPStatus.BAD_REQUEST:
+                        raise BadRequestError(
+                            error_response,
+                            "Personio API returned a bad request error.",
+                        ) from e
+                    case HTTPStatus.FORBIDDEN:
+                        raise ForbiddenError(
+                            error_response,
+                            "Personio API returned a forbidden error.",
+                        ) from e
+                    case HTTPStatus.UNPROCESSABLE_CONTENT:
+                        raise UnprocessableContentError(
+                            error_response,
+                            "Personio API returned an unprocessable content error.",
+                        ) from e
                 # We are not able to handle other error codes, so we just re-raise the exception.
                 raise
 
