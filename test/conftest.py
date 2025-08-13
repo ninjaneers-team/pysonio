@@ -5,6 +5,7 @@ import pytest
 from dotenv import load_dotenv
 
 from pysonio import Client
+from pysonio import PersonData
 
 load_dotenv()
 
@@ -30,3 +31,11 @@ def client() -> Client:
         personio_partner_identifier=PARTNER_ID,
         personio_app_identifier=APP_ID,
     )
+
+
+@pytest.fixture
+def persons(client: Client) -> list[PersonData]:
+    # We set a higher limit to reduce the pagination overhead in tests.
+    persons: Final = client.get_persons(limit=50)
+    assert persons  # We cannot work with an empty list.
+    return persons

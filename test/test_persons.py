@@ -2,16 +2,8 @@ import random
 from collections import defaultdict
 from typing import Final
 
-import pytest
-
 from pysonio import Client
 from pysonio import PersonData
-
-
-@pytest.fixture
-def persons(client: Client) -> list[PersonData]:
-    # We set a higher limit to reduce the pagination overhead in tests.
-    return client.get_persons(limit=50)
 
 
 def test_get_all_persons(client: Client) -> None:
