@@ -35,3 +35,10 @@ def test_get_person_by_first_name(client: Client, persons: list[PersonData]) -> 
     assert len(persons_with_this_first_name) == len(person_list)
     for person in persons_with_this_first_name:
         assert person.first_name == first_name
+
+
+def test_all_person_ids_are_numeric(client: Client, persons: list[PersonData]) -> None:
+    # We test this because we use the retrieved employee IDs for querying absence balances.
+    # For that we have to use a V1 endpoint that requires numeric IDs. However, the V2
+    # endpoint to retrieve persons returns string IDs.
+    assert all(person.id.isdigit() for person in persons)
