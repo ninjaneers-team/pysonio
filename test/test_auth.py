@@ -1,15 +1,30 @@
+import os
 from datetime import datetime
 from datetime import timedelta
 from typing import Final
 
 import pytest
-from conftest import create_client
 
 from pysonio import AuthenticationError
 from pysonio import AuthToken
 from pysonio import Pysonio
 from pysonio import is_token_valid
 from pysonio.models.authentication import OAuth2ErrorType
+
+
+# The following code is dupliacated from `conftest.py`. A direct import is not possible.
+# This should be the only file where this is needed.
+def get_environment_variable_or_raise(key: str) -> str:
+    value: Final = os.getenv(key)
+    if value is None:
+        raise ValueError(f"Environment variable '{key}' is not set.")
+    return value
+
+
+CLIENT_ID = get_environment_variable_or_raise("CLIENT_ID")
+CLIENT_SECRET = get_environment_variable_or_raise("CLIENT_SECRET")
+PARTNER_ID = get_environment_variable_or_raise("PARTNER_ID")
+APP_ID = get_environment_variable_or_raise("APP_ID")
 
 
 def test_invalid_credentials_raises_authentication_error() -> None:
@@ -46,7 +61,12 @@ def test_auth_token_is_cached(client: Pysonio) -> None:
 
 def test_auth_token_expires_and_is_refreshed() -> None:
     # We cannot use the `client` fixture here because it is only instantiated once per session.
-    client = create_client()
+    client = Pysonio(
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        personio_partner_identifier=PARTNER_ID,
+        personio_app_identifier=APP_ID,
+    )
     auth_token: Final = client._get_auth_token()
     assert is_token_valid(auth_token)
 

@@ -23,18 +23,14 @@ PARTNER_ID = get_environment_variable_or_raise("PARTNER_ID")
 APP_ID = get_environment_variable_or_raise("APP_ID")
 
 
-def create_client() -> Pysonio:
+@pytest.fixture(scope="session")
+def client() -> Pysonio:
     return Pysonio(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         personio_partner_identifier=PARTNER_ID,
         personio_app_identifier=APP_ID,
     )
-
-
-@pytest.fixture(scope="session")
-def client() -> Pysonio:
-    return create_client()
 
 
 @pytest.fixture(scope="session")
