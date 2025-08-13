@@ -23,8 +23,7 @@ PARTNER_ID = get_environment_variable_or_raise("PARTNER_ID")
 APP_ID = get_environment_variable_or_raise("APP_ID")
 
 
-@pytest.fixture
-def client() -> Pysonio:
+def create_client() -> Pysonio:
     return Pysonio(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
@@ -33,7 +32,12 @@ def client() -> Pysonio:
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+def client() -> Pysonio:
+    return create_client()
+
+
+@pytest.fixture(scope="session")
 def persons(client: Pysonio) -> list[PersonData]:
     # We set a higher limit to reduce the pagination overhead in tests.
     persons: Final = client.get_persons(limit=50)

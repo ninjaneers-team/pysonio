@@ -6,7 +6,7 @@ from pysonio import AbsenceTypesData
 from pysonio import Pysonio
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def absence_types(client: Pysonio) -> list[AbsenceTypesData]:
     """
     Fixture to retrieve a list of all absence types from the Personio API.

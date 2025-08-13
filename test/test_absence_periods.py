@@ -1,3 +1,4 @@
+import random
 from typing import Final
 
 import pytest
@@ -7,7 +8,7 @@ from pysonio import PersonData
 from pysonio import Pysonio
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def absence_periods(client: Pysonio) -> list[AbsencePeriodData]:
     result = client.get_absence_periods()
     assert result  # We cannot work with an empty list.

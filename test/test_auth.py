@@ -3,6 +3,7 @@ from datetime import timedelta
 from typing import Final
 
 import pytest
+from conftest import create_client
 
 from pysonio import AuthenticationError
 from pysonio import AuthToken
@@ -43,7 +44,9 @@ def test_auth_token_is_cached(client: Pysonio) -> None:
     assert is_token_valid(auth_token2)
 
 
-def test_auth_token_expires_and_is_refreshed(client: Pysonio) -> None:
+def test_auth_token_expires_and_is_refreshed() -> None:
+    # We cannot use the `client` fixture here because it is only instantiated once per session.
+    client = create_client()
     auth_token: Final = client._get_auth_token()
     assert is_token_valid(auth_token)
 
