@@ -495,6 +495,27 @@ class Pysonio:
                 raise
             raise concrete_exception from e
 
+    def get_employment(
+        self,
+        *,
+        person_id: str,
+        employment_id: str,
+    ) -> EmploymentData:
+        try:
+            return self._send_get_request(
+                endpoint=Endpoint.PERSONS,
+                path_params=[person_id, "employments", employment_id],
+                response_model=EmploymentData,
+            )
+        except UnexpectedResponse as e:
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={HTTPStatus.NOT_FOUND},
+            )
+            if concrete_exception is None:
+                raise
+            raise concrete_exception from e
+
     def _get_paginated_response[ResponseModel: BaseModel](
         self,
         *,
