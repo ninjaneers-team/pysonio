@@ -21,6 +21,7 @@ from pysonio.errors import CommunicationError
 from pysonio.errors import ConflictError
 from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
+from pysonio.errors import PysonioError
 from pysonio.errors import UnexpectedResponse
 from pysonio.errors import UnprocessableContentError
 from pysonio.filters import DateFilter
@@ -44,8 +45,9 @@ from pysonio.models.authentication import AuthErrorResponse
 from pysonio.models.authentication import AuthRequest
 from pysonio.models.authentication import AuthResponse
 from pysonio.models.authentication import AuthToken
+from pysonio.models.employments import EmploymentData as EmploymentData
 from pysonio.models.error_response import ErrorResponse
-from pysonio.models.error_response import V1ErrorResponse
+from pysonio.models.error_response import V1ErrorResponse as V1ErrorResponse
 from pysonio.models.pagination import PaginatedResponse
 from pysonio.models.pagination import PaginationQueryParams
 from pysonio.models.persons import ListPersonsQueryParams
@@ -324,25 +326,13 @@ class Pysonio:
                 is_beta_endpoint=True,
             )
         except UnexpectedResponse as e:
-            if e.response.status_code not in (HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND):
-                raise
-            error_response = Pysonio._validate_response(
-                e.response,
-                ErrorResponse,
-                expected_status_code=HTTPStatus(e.response.status_code),
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND},
             )
-            match e.response.status_code:
-                case HTTPStatus.FORBIDDEN:
-                    raise ForbiddenError(
-                        error_response,
-                        "Personio API returned a forbidden error.",
-                    ) from e
-                case HTTPStatus.NOT_FOUND:
-                    raise NotFoundError(
-                        error_response,
-                        f"Personio API returned a not found error for absence period ID {id_}. ",
-                    ) from e
-            raise  # Unreachable, but needed to satisfy the type checker.
+            if concrete_exception is None:
+                raise
+            raise concrete_exception from e
 
     def create_absence_period(
         self,
@@ -373,40 +363,18 @@ class Pysonio:
                 is_beta_endpoint=True,
             ).id
         except UnexpectedResponse as e:
-            if e.response.status_code not in (
-                HTTPStatus.BAD_REQUEST,
-                HTTPStatus.FORBIDDEN,
-                HTTPStatus.CONFLICT,
-                HTTPStatus.UNPROCESSABLE_CONTENT,
-            ):
-                raise
-            error_response = Pysonio._validate_response(
-                e.response,
-                ErrorResponse,
-                expected_status_code=HTTPStatus(e.response.status_code),
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={
+                    HTTPStatus.BAD_REQUEST,
+                    HTTPStatus.FORBIDDEN,
+                    HTTPStatus.CONFLICT,
+                    HTTPStatus.UNPROCESSABLE_CONTENT,
+                },
             )
-            match e.response.status_code:
-                case HTTPStatus.BAD_REQUEST:
-                    raise BadRequestError(
-                        error_response,
-                        "Personio API returned a bad request error.",
-                    ) from e
-                case HTTPStatus.FORBIDDEN:
-                    raise ForbiddenError(
-                        error_response,
-                        "Personio API returned a forbidden error.",
-                    ) from e
-                case HTTPStatus.CONFLICT:
-                    raise ConflictError(
-                        error_response,
-                        "Personio API returned a conflict error.",
-                    ) from e
-                case HTTPStatus.UNPROCESSABLE_CONTENT:
-                    raise UnprocessableContentError(
-                        error_response,
-                        "Personio API returned an unprocessable content error.",
-                    ) from e
-            raise  # Unreachable, but needed to satisfy the type checker.
+            if concrete_exception is None:
+                raise
+            raise concrete_exception from e
 
     def get_absence_balance(self, person_id: str) -> list[AbsenceBalanceData]:
         """
@@ -434,16 +402,13 @@ class Pysonio:
                 response_model=GetAbsenceBalanceResponse,
             ).data
         except UnexpectedResponse as e:
-            if e.response.status_code != HTTPStatus.NOT_FOUND:
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={HTTPStatus.NOT_FOUND},
+            )
+            if concrete_exception is None:
                 raise
-            raise NotFoundError(
-                self._validate_response(
-                    e.response,
-                    V1ErrorResponse,
-                    expected_status_code=HTTPStatus(e.response.status_code),
-                ),
-                f"Personio API returned a not found error for employee ID {person_id}. ",
-            ) from e
+            raise concrete_exception from e
 
     @overload
     def get_absence_types(
@@ -514,17 +479,26 @@ class Pysonio:
         :raises AuthenticationError: If the authentication process fails.
         """
         # See: https://developer.personio.de/reference/get_v2-absence-types-id
-        return self._send_get_request(
-            endpoint=Endpoint.ABSENCE_TYPES,
-            path_params=[id_],
-            response_model=AbsenceTypesData,
-            is_beta_endpoint=True,
-        )
+        try:
+            return self._send_get_request(
+                endpoint=Endpoint.ABSENCE_TYPES,
+                path_params=[id_],
+                response_model=AbsenceTypesData,
+                is_beta_endpoint=True,
+            )
+        except UnexpectedResponse as e:
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND},
+            )
+            if concrete_exception is None:
+                raise
+            raise concrete_exception from e
 
-    def _get_paginated_response[QueryParams: BaseModel, ResponseModel: BaseModel](
+    def _get_paginated_response[ResponseModel: BaseModel](
         self,
         *,
-        query_params: Optional[QueryParams] = None,
+        query_params: Optional[BaseModel] = None,
         endpoint: Endpoint,
         response_model: type[ResponseModel],
         expected_status_code: HTTPStatus,
@@ -541,32 +515,14 @@ class Pysonio:
                     is_beta_endpoint=is_beta_endpoint,
                 )
             except UnexpectedResponse as e:
-                # We ignore the type error here. This seems to be a false positive from Pyrefly.
-                # TODO: Reproduce this error in a minimal example and report it to the Pyrefly team.
-                actual_status_code: int = e.response.status_code  # type: ignore[bad-assignment]
-                error_response = Pysonio._validate_response(
-                    e.response,
-                    ErrorResponse,
-                    expected_status_code=HTTPStatus(actual_status_code),
+                concrete_exception = Pysonio._to_concrete_exception_type(
+                    e,
+                    # This is a universally used function, therefore we don't want to limit the status codes.
+                    documented_status_codes=None,
                 )
-                match e.response.status_code:
-                    case HTTPStatus.BAD_REQUEST:
-                        raise BadRequestError(
-                            error_response,
-                            "Personio API returned a bad request error.",
-                        ) from e
-                    case HTTPStatus.FORBIDDEN:
-                        raise ForbiddenError(
-                            error_response,
-                            "Personio API returned a forbidden error.",
-                        ) from e
-                    case HTTPStatus.UNPROCESSABLE_CONTENT:
-                        raise UnprocessableContentError(
-                            error_response,
-                            "Personio API returned an unprocessable content error.",
-                        ) from e
-                # We are not able to handle other error codes, so we just re-raise the exception.
-                raise
+                if concrete_exception is None:
+                    raise
+                raise concrete_exception from e
 
             yield response
 
@@ -584,12 +540,12 @@ class Pysonio:
                 # We can stop here.
                 break
 
-    def _send_get_request[QueryParams: BaseModel, ResponseModel: BaseModel](
+    def _send_get_request[ResponseModel: BaseModel](
         self,
         endpoint: Endpoint,
         *,
         path_params: Optional[list[str]] = None,
-        query_params: Optional[QueryParams] = None,
+        query_params: Optional[BaseModel] = None,
         response_model: type[ResponseModel],
         expected_status_code: HTTPStatus = HTTPStatus.OK,
         is_beta_endpoint: bool = False,
@@ -619,15 +575,11 @@ class Pysonio:
             expected_status_code=expected_status_code,
         )
 
-    def _send_post_request[
-        QueryParams: BaseModel,
-        Payload: BaseModel,
-        ResponseModel: BaseModel,
-    ](
+    def _send_post_request[Payload: BaseModel, ResponseModel: BaseModel](
         self,
         endpoint: Endpoint,
         *,
-        query_params: Optional[QueryParams] = None,
+        query_params: Optional[BaseModel] = None,
         payload: Payload,
         content_type: ContentType,
         response_model: type[ResponseModel],
@@ -774,3 +726,63 @@ class Pysonio:
         :return: The full URL for the endpoint.
         """
         return f"{self._base_url}{endpoint.value}"
+
+    @staticmethod
+    def _to_concrete_exception_type(
+        unexpected_response: UnexpectedResponse,
+        *,
+        documented_status_codes: Optional[set[HTTPStatus]],
+    ) -> Optional[PysonioError]:
+        """
+        Takes an `UnexpectedResponse` and returns a concrete exception type if the response's
+        status code is one of the documented status codes. If the status code is not documented,
+        or if there is no specialized exception type for it, returns `None`. If `documented_status_codes` is
+        `None`, it will not filter and will try to convert the response to any concrete exception type that matches.
+
+        :param unexpected_response: The unexpected response.
+        :param documented_status_codes: A set of documented status codes for the used endpoint.
+        :return: An instance of a concrete exception type or `None` if the status code is not documented or has
+                 no specialized exception type.
+        """
+        # Pyrefly shows a false positive in the following line because it deduces the type of the `status_code`
+        # attribute as `None` instead of `int`. Thus, we ignore the error explicitly.
+        # TODO: Create a minimal example for this and report it to the Pyrefly maintainers.
+        status_code: Final[int] = unexpected_response.response.status_code  # type: ignore[bad-assignment]
+
+        if documented_status_codes is not None and status_code not in documented_status_codes:
+            return None
+
+        error_response: Final = Pysonio._validate_response(
+            unexpected_response.response,
+            ErrorResponse,
+            expected_status_code=HTTPStatus(status_code),
+        )
+        match status_code:
+            case HTTPStatus.BAD_REQUEST:
+                return BadRequestError(
+                    error_response,
+                    "Personio API returned a bad request error.",
+                )
+            case HTTPStatus.FORBIDDEN:
+                return ForbiddenError(
+                    error_response,
+                    "Personio API returned a forbidden error.",
+                )
+            case HTTPStatus.CONFLICT:
+                return ConflictError(
+                    error_response,
+                    "Personio API returned a conflict error.",
+                )
+            case HTTPStatus.UNPROCESSABLE_CONTENT:
+                return UnprocessableContentError(
+                    error_response,
+                    "Personio API returned an unprocessable content error.",
+                )
+            case HTTPStatus.NOT_FOUND:
+                return NotFoundError(
+                    error_response,
+                    "Personio API returned a not found error.",
+                )
+
+        # There is no specialized exception type for this status code, so we return `None`.
+        return None
