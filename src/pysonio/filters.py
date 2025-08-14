@@ -14,12 +14,6 @@ class Operator(Enum):
 
 
 @final
-class DatetimeFilter(NamedTuple):
-    value: datetime
-    operator: Operator = Operator.EQUALS
-
-
-@final
 class DateFilter(NamedTuple):
     value: date
     operator: Operator = Operator.EQUALS

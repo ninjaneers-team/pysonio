@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
@@ -8,7 +9,7 @@ from typing import final
 from pydantic import BaseModel
 from pydantic import Field
 
-from pysonio import DatetimeFilter
+from pysonio import DateFilter
 from pysonio.filters import Operator
 from pysonio.models.meta import MetaWithLinks
 
@@ -26,12 +27,15 @@ class ListPersonsQueryParams(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     preferred_name: Optional[str] = None
-    created_at: Optional[datetime] = None
-    created_at_gt: Annotated[Optional[datetime], Field(default=None, alias="created_at.gt")]
-    created_at_lt: Annotated[Optional[datetime], Field(default=None, alias="created_at.lt")]
-    updated_at: Optional[datetime] = None
-    updated_at_gt: Annotated[Optional[datetime], Field(default=None, alias="updated_at.gt")]
-    updated_at_lt: Annotated[Optional[datetime], Field(default=None, alias="updated_at.lt")]
+    # According to the docs, the date filters should be of type `datetime`, but the API
+    # expects `date` values instead. This seems to be a bug in the API's implementation
+    # or documentation.
+    created_at: Optional[date] = None
+    created_at_gt: Annotated[Optional[date], Field(default=None, alias="created_at.gt")]
+    created_at_lt: Annotated[Optional[date], Field(default=None, alias="created_at.lt")]
+    updated_at: Optional[date] = None
+    updated_at_gt: Annotated[Optional[date], Field(default=None, alias="updated_at.gt")]
+    updated_at_lt: Annotated[Optional[date], Field(default=None, alias="updated_at.lt")]
 
     @classmethod
     def from_params(
@@ -43,8 +47,8 @@ class ListPersonsQueryParams(BaseModel):
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DatetimeFilter]] = None,
-        updated_at_filters: Optional[list[DatetimeFilter]] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
     ) -> Self:
         result = cls(
             limit=limit,

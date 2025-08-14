@@ -26,7 +26,6 @@ from pysonio.errors import UnexpectedResponse
 from pysonio.errors import UnprocessableContentError
 from pysonio.filters import DateFilter
 from pysonio.filters import DateRangeFilter as DateRangeFilter
-from pysonio.filters import DatetimeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
 from pysonio.models.absence_balance import GetAbsenceBalanceResponse
 from pysonio.models.absence_periods import AbsencePeriodData as AbsencePeriodData
@@ -134,8 +133,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DatetimeFilter]] = None,
-        updated_at_filters: Optional[list[DatetimeFilter]] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
         streamed: Literal[False] = False,
     ) -> list[PersonData]: ...
 
@@ -149,8 +148,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DatetimeFilter]] = None,
-        updated_at_filters: Optional[list[DatetimeFilter]] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
         streamed: Literal[True] = True,
     ) -> Generator[list[PersonData]]: ...
 
@@ -163,8 +162,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DatetimeFilter]] = None,
-        updated_at_filters: Optional[list[DatetimeFilter]] = None,
+        created_at_filters: Optional[list[DateFilter]] = None,
+        updated_at_filters: Optional[list[DateFilter]] = None,
         streamed: bool = False,
     ) -> list[PersonData] | Generator[list[PersonData]]:
         """

@@ -1,9 +1,12 @@
 import random
 from collections import defaultdict
+from datetime import date
 from typing import Final
 
+from pysonio import DateFilter
 from pysonio import PersonData
 from pysonio import Pysonio
+from pysonio.filters import Operator
 
 
 def test_get_all_persons(client: Pysonio) -> None:
@@ -27,6 +30,20 @@ def test_get_person_by_first_name(client: Pysonio, persons: list[PersonData]) ->
     assert len(persons_with_this_first_name) == len(person_list)
     for person in persons_with_this_first_name:
         assert person.first_name == first_name
+
+
+def test_get_persons_by_updated_at(client: Pysonio, persons: list[PersonData]) -> None:
+    new_employees: Final = client.get_persons(
+        updated_at_filters=[
+            DateFilter(
+                value=date(year=2025, month=1, day=1),
+                operator=Operator.GREATER_THAN,
+            ),
+        ]
+    )
+    expected_employees: Final = [person for person in persons if person.updated_at.year >= 2025]
+    for employee in new_employees:
+        assert employee in expected_employees
 
 
 def test_all_person_ids_are_numeric(client: Pysonio, persons: list[PersonData]) -> None:
