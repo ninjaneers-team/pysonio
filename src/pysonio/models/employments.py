@@ -110,8 +110,8 @@ class EmploymentData(BaseModel):
     # The number of hours per week that is considered full time for the employment.
     full_time_weekly_working_hours: Optional[float] = None
     # I don't know why, but the following date values are strings instead of dates ¯\_(ツ)_/¯
-    probation_end_date: str
-    employment_start_date: str
+    probation_end_date: Optional[str] = None
+    employment_start_date: Optional[str] = None
     employment_end_date: Optional[str] = None
     type: Optional[EmploymentType] = None
     contract_end_date: Optional[str] = None
@@ -119,7 +119,7 @@ class EmploymentData(BaseModel):
     updated_at: datetime
     supervisor: Optional[Supervisor] = None
     office: Optional[Office] = None
-    org_units: list[OrgUnit]
+    org_units: Optional[list[OrgUnit]] = None
     person: Person
     termination: Termination
     cost_centers: Optional[list[CostCenter]] = None
