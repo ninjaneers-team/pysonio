@@ -18,9 +18,7 @@ def test_get_employment(client: Pysonio, persons: list[PersonData]) -> None:
 
 def test_get_employments(client: Pysonio, persons: list[PersonData]) -> None:
     employee: Final = random.choice(persons)
-    employments: Final = client.get_employments(
-        person_id=employee.id,
-    )
+    employments: Final = client.get_employments(person_id=employee.id)
     assert len(employments) == len(employee.employments)
     for employment in employments:
         assert employment.person.id == employee.id
