@@ -8,7 +8,7 @@ from typing import final
 from pydantic import BaseModel
 from pydantic import Field
 
-from pysonio import DateFilter
+from pysonio import DatetimeFilter
 from pysonio.filters import Operator
 from pysonio.models.meta import MetaWithLinks
 
@@ -43,8 +43,8 @@ class ListPersonsQueryParams(BaseModel):
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DateFilter]] = None,
-        updated_at_filters: Optional[list[DateFilter]] = None,
+        created_at_filters: Optional[list[DatetimeFilter]] = None,
+        updated_at_filters: Optional[list[DatetimeFilter]] = None,
     ) -> Self:
         result = cls(
             limit=limit,

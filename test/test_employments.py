@@ -14,3 +14,14 @@ def test_get_employment(client: Pysonio, persons: list[PersonData]) -> None:
     )
     assert employment.id == employee.employments[0].id
     assert employment.person.id == employee.id
+
+
+def test_get_employments(client: Pysonio, persons: list[PersonData]) -> None:
+    employee: Final = random.choice(persons)
+    employments: Final = client.get_employments(
+        person_id=employee.id,
+    )
+    assert len(employments) == len(employee.employments)
+    for employment in employments:
+        assert employment.person.id == employee.id
+        assert employment.id in [e.id for e in employee.employments]

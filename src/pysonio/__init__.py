@@ -26,6 +26,7 @@ from pysonio.errors import UnexpectedResponse
 from pysonio.errors import UnprocessableContentError
 from pysonio.filters import DateFilter
 from pysonio.filters import DateRangeFilter as DateRangeFilter
+from pysonio.filters import DatetimeFilter
 from pysonio.models.absence_balance import AbsenceBalanceData
 from pysonio.models.absence_balance import GetAbsenceBalanceResponse
 from pysonio.models.absence_periods import AbsencePeriodData as AbsencePeriodData
@@ -46,6 +47,8 @@ from pysonio.models.authentication import AuthRequest
 from pysonio.models.authentication import AuthResponse
 from pysonio.models.authentication import AuthToken
 from pysonio.models.employments import EmploymentData as EmploymentData
+from pysonio.models.employments import ListEmploymentsQueryParams
+from pysonio.models.employments import ListEmploymentsResponse
 from pysonio.models.error_response import ErrorResponse
 from pysonio.models.error_response import V1ErrorResponse as V1ErrorResponse
 from pysonio.models.pagination import PaginatedResponse
@@ -131,8 +134,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DateFilter]] = None,
-        updated_at_filters: Optional[list[DateFilter]] = None,
+        created_at_filters: Optional[list[DatetimeFilter]] = None,
+        updated_at_filters: Optional[list[DatetimeFilter]] = None,
         streamed: Literal[False] = False,
     ) -> list[PersonData]: ...
 
@@ -146,8 +149,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DateFilter]] = None,
-        updated_at_filters: Optional[list[DateFilter]] = None,
+        created_at_filters: Optional[list[DatetimeFilter]] = None,
+        updated_at_filters: Optional[list[DatetimeFilter]] = None,
         streamed: Literal[True] = True,
     ) -> Generator[list[PersonData]]: ...
 
@@ -160,8 +163,8 @@ class Pysonio:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         preferred_name: Optional[str] = None,
-        created_at_filters: Optional[list[DateFilter]] = None,
-        updated_at_filters: Optional[list[DateFilter]] = None,
+        created_at_filters: Optional[list[DatetimeFilter]] = None,
+        updated_at_filters: Optional[list[DatetimeFilter]] = None,
         streamed: bool = False,
     ) -> list[PersonData] | Generator[list[PersonData]]:
         """
@@ -516,20 +519,77 @@ class Pysonio:
                 raise
             raise concrete_exception from e
 
+    @overload
+    def get_employments(
+        self,
+        *,
+        person_id: str,
+        limit: Optional[int] = None,
+        employment_ids: Optional[list[str]] = None,
+        updated_at: Optional[list[DateFilter]] = None,
+        streamed: Literal[False] = False,
+    ) -> list[EmploymentData]: ...
+
+    @overload
+    def get_employments(
+        self,
+        *,
+        person_id: str,
+        limit: Optional[int] = None,
+        employment_ids: Optional[list[str]] = None,
+        updated_at: Optional[list[DateFilter]] = None,
+        streamed: Literal[True] = True,
+    ) -> Generator[list[EmploymentData]]: ...
+
+    def get_employments(
+        self,
+        *,
+        person_id: str,
+        limit: Optional[int] = None,
+        employment_ids: Optional[list[str]] = None,
+        updated_at: Optional[list[DateFilter]] = None,
+        streamed: bool = False,
+    ) -> list[EmploymentData] | Generator[list[EmploymentData]]:
+        # See: https://developer.personio.de/reference/get_v2-persons-person-id-employments
+        query_params: Final = ListEmploymentsQueryParams.from_params(
+            limit=limit,
+            employment_ids=employment_ids,
+            updated_at=updated_at,
+        )
+
+        responses_generator: Final = self._get_paginated_response(
+            endpoint=Endpoint.PERSONS,
+            path_params=[person_id, "employments"],
+            query_params=query_params,
+            response_model=ListEmploymentsResponse,
+        )
+
+        def result_generator() -> Generator[list[EmploymentData]]:
+            for response in responses_generator:
+                yield response.data
+
+        if streamed:
+            return result_generator()
+
+        # If we're not streaming, we flatten the lists and return the result.
+        return [employment for response in responses_generator for employment in response.data]
+
     def _get_paginated_response[ResponseModel: BaseModel](
         self,
         *,
-        query_params: Optional[BaseModel] = None,
         endpoint: Endpoint,
+        path_params: Optional[list[str]] = None,
+        query_params: Optional[BaseModel] = None,
         response_model: type[ResponseModel],
-        expected_status_code: HTTPStatus,
-        is_beta_endpoint: bool,
+        expected_status_code: HTTPStatus = HTTPStatus.OK,
+        is_beta_endpoint: bool = False,
     ) -> Generator[ResponseModel]:
         next_query_params = PaginationQueryParams() if query_params is None else query_params
         while True:
             try:
                 response = self._send_get_request(
                     endpoint,
+                    path_params=path_params,
                     query_params=next_query_params,
                     response_model=response_model,
                     expected_status_code=expected_status_code,

@@ -2,13 +2,17 @@ from datetime import date
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
+from typing import Final
 from typing import Optional
+from typing import Self
 from typing import final
 
 from pydantic import BaseModel
 from pydantic import Field
 
 from pysonio import Person
+from pysonio.filters import DateFilter
+from pysonio.filters import Operator
 from pysonio.models.meta import MetaWithLinks
 
 
@@ -121,4 +125,57 @@ class EmploymentData(BaseModel):
     cost_centers: Optional[list[CostCenter]] = None
     legal_entity: Optional[LegalEntity] = None
     sub_company: Optional[SubCompany] = None  # Note: Marked as deprecated.
+    meta: Annotated[Optional[MetaWithLinks], Field(default=None, alias="_meta")]
+
+
+@final
+class ListEmploymentsQueryParams(BaseModel):
+    limit: Optional[int] = None  # Max of 50, defaults to 10 if not provided.
+    cursor: Optional[str] = None
+    id: Optional[str] = None
+    # According to the docs, the following fields are of type "date-time", but in practice
+    # they only accept date values. Also, filtering by equality of the `updated_at` field
+    # doesn't seem to work at all. I assume this is a bug in the API's implementation.
+    updated_at: Optional[date] = None
+    updated_at_gt: Annotated[Optional[date], Field(default=None, alias="updated_at.gt")]
+    updated_at_lt: Annotated[Optional[date], Field(default=None, alias="updated_at.lt")]
+
+    @classmethod
+    def from_params(
+        cls,
+        limit: Optional[int] = None,
+        employment_ids: Optional[list[str]] = None,
+        updated_at: Optional[list[DateFilter]] = None,
+    ) -> Self:
+        params: Final = cls(
+            limit=limit,
+            cursor=None,
+            id=None if employment_ids is None else ",".join(employment_ids),
+            # Placeholders to satisfy type checker.
+            updated_at=None,
+            updated_at_gt=None,
+            updated_at_lt=None,
+        )
+        if updated_at is None:
+            return params
+
+        for filter_ in updated_at:
+            match filter_.operator:
+                case Operator.EQUALS:
+                    params.updated_at = filter_.value
+                case Operator.GREATER_THAN:
+                    params.updated_at_gt = filter_.value
+                case Operator.LESS_THAN:
+                    params.updated_at_lt = filter_.value
+
+        return params
+
+
+@final
+class ListEmploymentsResponse(BaseModel):
+    """
+    Modelled after: https://developer.personio.de/reference/get_v2-persons-person-id-employments
+    """
+
+    data: Annotated[list[EmploymentData], Field(alias="_data")]
     meta: Annotated[Optional[MetaWithLinks], Field(default=None, alias="_meta")]

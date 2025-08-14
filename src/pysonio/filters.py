@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import datetime
 from enum import Enum
 from enum import auto
@@ -13,8 +14,14 @@ class Operator(Enum):
 
 
 @final
-class DateFilter(NamedTuple):
+class DatetimeFilter(NamedTuple):
     value: datetime
+    operator: Operator = Operator.EQUALS
+
+
+@final
+class DateFilter(NamedTuple):
+    value: date
     operator: Operator = Operator.EQUALS
 
 
