@@ -34,9 +34,12 @@ preview = false
 
 [tool.ruff.lint]
 preview = true
-select = ["E", "W", "F", "I", "B", "C4", "UP", "E401"]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "E401", "ISC001", "ISC002"]
 # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
 ignore = ["W191", "E111", "E114", "E117", "D206", "D300", "Q000", "Q001", "Q002", "Q003", "COM812", "COM819", "UP045"]
 
 [tool.ruff.lint.isort]
 force-single-line = true
+
+[tool.ruff.lint.flake8-implicit-str-concat]
+allow-multiline = false
