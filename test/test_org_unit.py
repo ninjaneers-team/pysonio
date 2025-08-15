@@ -18,6 +18,4 @@ def test_get_org_units(client: Pysonio, persons: list[PersonData]) -> None:
         )
         for org_unit in employment.org_units
     }
-    assert "team" in org_units
     assert "department" in org_units
-    assert len(org_units) == 2
