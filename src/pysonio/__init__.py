@@ -21,6 +21,7 @@ from pysonio.errors import CommunicationError
 from pysonio.errors import ConflictError
 from pysonio.errors import ForbiddenError
 from pysonio.errors import NotFoundError
+from pysonio.errors import PreconditionFailedError
 from pysonio.errors import PysonioError
 from pysonio.errors import UnexpectedResponse
 from pysonio.errors import UnprocessableContentError
@@ -50,6 +51,8 @@ from pysonio.models.employments import ListEmploymentsQueryParams
 from pysonio.models.employments import ListEmploymentsResponse
 from pysonio.models.error_response import ErrorResponse
 from pysonio.models.error_response import V1ErrorResponse as V1ErrorResponse
+from pysonio.models.org_units import RetrieveOrgUnitQueryParams
+from pysonio.models.org_units import RetrieveOrgUnitResponse
 from pysonio.models.pagination import PaginatedResponse
 from pysonio.models.pagination import PaginationQueryParams
 from pysonio.models.persons import ListPersonsQueryParams
@@ -573,6 +576,38 @@ class Pysonio:
         # If we're not streaming, we flatten the lists and return the result.
         return [employment for response in responses_generator for employment in response.data]
 
+    def get_org_unit(
+        self,
+        *,
+        org_unit_id: str,
+        org_unit_type: str,
+        include_parent_chain: Optional[bool] = None,
+    ) -> RetrieveOrgUnitResponse:
+        # Even though the API returns `org_unit_id` as a string, we have to use a `int64`
+        # when retrieving an org unit (which is an inconsistency in the API). Therefore,
+        # we do a validation check here.
+        if not org_unit_id.isdigit():
+            raise ValueError(f"Invalid org unit ID: {org_unit_id}. It must be a digit string.")
+        query_params: Final = RetrieveOrgUnitQueryParams(
+            type=org_unit_type,
+            include_parent_chain=include_parent_chain,
+        )
+        try:
+            return self._send_get_request(
+                endpoint=Endpoint.ORG_UNITS,
+                path_params=[org_unit_id],
+                query_params=query_params,
+                response_model=RetrieveOrgUnitResponse,
+            )
+        except UnexpectedResponse as e:
+            concrete_exception: Final = Pysonio._to_concrete_exception_type(
+                e,
+                documented_status_codes={HTTPStatus.NOT_FOUND, HTTPStatus.PRECONDITION_FAILED},
+            )
+            if concrete_exception is None:
+                raise
+            raise concrete_exception from e
+
     def _get_paginated_response[ResponseModel: BaseModel](
         self,
         *,
@@ -859,6 +894,11 @@ class Pysonio:
                 return NotFoundError(
                     error_response,
                     "Personio API returned a not found error.",
+                )
+            case HTTPStatus.PRECONDITION_FAILED:
+                return PreconditionFailedError(
+                    error_response,
+                    "Personio API returned a precondition failed error.",
                 )
 
         # There is no specialized exception type for this status code, so we return `None`.

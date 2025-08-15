@@ -9,3 +9,4 @@ class Endpoint(Enum):
     ABSENCE_PERIODS = "/v2/absence-periods"
     PERSONS = "/v2/persons"
     EMPLOYEES = "/v1/company/employees"
+    ORG_UNITS = "/v2/org-units"
