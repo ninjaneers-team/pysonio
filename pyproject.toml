@@ -23,6 +23,7 @@ dev = [
     "pyrefly>=0.28.1",
     "pytest>=8.4.1",
     "ruff>=0.12.8",
+    "types-requests>=2.32.4.20250809",
 ]
 
 [tool.ruff]

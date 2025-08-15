@@ -824,10 +824,7 @@ class Pysonio:
         :return: An instance of a concrete exception type or `None` if the status code is not documented or has
                  no specialized exception type.
         """
-        # Pyrefly shows a false positive in the following line because it deduces the type of the `status_code`
-        # attribute as `None` instead of `int`. Thus, we ignore the error explicitly.
-        # TODO: Create a minimal example for this and report it to the Pyrefly maintainers.
-        status_code: Final[int] = unexpected_response.response.status_code  # type: ignore[bad-assignment]
+        status_code: Final[int] = unexpected_response.response.status_code
 
         if documented_status_codes is not None and status_code not in documented_status_codes:
             return None
